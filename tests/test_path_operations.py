@@ -519,3 +519,26 @@ def test_unlink(s3_mock):
         S3Path("/test-bucket/fake_folder").unlink()
     with pytest.raises(IsADirectoryError):
         S3Path("/fake-bucket/").unlink()
+
+
+def test_symlink(s3_mock):
+    s3 = boto3.resource('s3')
+
+    s3.create_bucket(Bucket='test-bucket')
+    object_summary = s3.ObjectSummary('test-bucket', 'temp_key')
+    object_summary.put(Body=b'test data')
+
+    path = S3Path('/test-bucket/temp_key')
+    data = path.read_bytes()
+    assert isinstance(data, bytes)
+
+    path.write_bytes(data)
+    assert path.read_bytes() == data
+    new_path = S3Path('/test-bucket/new_key')
+    new_path.symlink_to(path)
+    assert new_path.is_symlink() is True
+    assert new_path.read_bytes() == data
+    assert not path.is_symlink()
+    with pytest.raises(FileNotFoundError):
+        assert not S3Path('/fake-bucket/fake-key').is_symlink()
+
